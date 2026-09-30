@@ -1,0 +1,39 @@
+# Decisions and open questions
+
+## Agreed decisions
+
+1. **Learning through implementation:** The learner writes the code, asks for help as needed, and resolves review findings before moving on. Completion means demonstrated understanding as well as working behavior.
+2. **Backend-only project:** Build a Usage Metering and Billing Engine; no frontend requirement.
+3. **Primary database: PostgreSQL.** It supports learning relational data modeling, constraints, transactions, and concurrency in the billing domain. Cassandra remains optional for a later usage-history experiment.
+4. **Schema migrations: Flyway and versioned SQL.** Flyway owns schema evolution. Hibernate validates mappings rather than automatically changing the schema. Applied shared migrations are corrected with new migrations. Practice backfills and compatible schema changes as requirements arise.
+5. **Architecture: modular monolith first.** Introduce Kafka for a real asynchronous workflow; extract a service after boundaries and operational consequences can be understood.
+6. **Future stages are retained.** Kafka, outbox/CDC, Redis, Elasticsearch, and service extraction are explicit roadmap commitments. Their detailed design happens at stage entry.
+7. **AWS deployment timing:** First deploy after the synchronous backend is complete and tested. Deploy and verify subsequent major additions. AWS services and budget will be chosen later.
+8. **Persistent learning context:** Maintain `AGENTS.md`, roadmap, overview, individual phase files, progress, and decisions. Each agent resumes from these records.
+9. **Stage 1 product scope agreed:** One SaaS provider (CloudBox) bills its business-customer tenants. CloudBox staff register customers and manage pricing/subscriptions; customer employees can view their own subscription, usage, and invoices.
+10. **Trusted usage reporting:** CloudBox's product reports customer consumption. The customer does not self-report its billable usage. Do not carry forward the earlier suggestion that Acme's own application submits its billable events; producer authentication and permitted customer scope still need design.
+11. **Stage 1 limits:** Monthly billing, API-call count as the only initial metric, one currency, one active subscription per customer, no mid-month plan changes, and invoice generation without payment collection. Finalized invoice amounts remain stable when prices change later.
+12. **Meaning of first version:** Stage 1 is a complete synchronous milestone within this project, built through multiple small phases and followed by the agreed extension stages. It is not a separate disposable exercise.
+13. **Stage 1 phase sequence:** Spring/HTTP foundations; PostgreSQL/Flyway/customers; security/tenancy; plans/subscriptions; trusted ingestion/deduplication; monthly reporting; invoices; end-to-end verification/AWS deployment. Each phase has its own guide and review gates. Detailed policies remain open until their relevant slice.
+14. **Phase 1 setup decisions (agreed 2026-09-24):** Java 25 (LTS), Spring Boot 4.1.x, Maven build tool. Maven project lives in a `backend/` subfolder alongside the existing docs. Base package `com.cloudbox.metering` (Maven group `com.cloudbox`). Versions were verified against the official Spring Boot system-requirements page at setup time (Spring Boot 4.1 requires Java 17–26; all 3.x is now EOL). No future-phase modules are created as empty stubs.
+15. **Phase 1 informational endpoint (agreed 2026-09-24, implemented 2026-09-26):** `GET /api/v1/health`, returning a stable JSON contract. Implemented response body: `{"service":"service-metering","version":"0.0.1","status":"UP"}`. Verified over HTTP (200, `Content-Type: application/json`) and by a `@WebMvcTest` slice test. The `version` value currently mirrors the project version; making it configurable is slice 4. This is a local-only learning increment; it is not ready for external exposure until Phase 3 adds security.
+16. **Slice concept heads-up (agreed 2026-09-24):** At the start of every slice, the agent gives the learner a short, on-point comma-separated list of the specific concepts and new things needed to complete it — not broad topic areas. Recorded in `../AGENTS.md` under the learning loop.
+17. **Phase 1 complete (2026-09-29):** Spring Boot foundations and HTTP are done and verified. Health settings are externalized via `HealthProperties` (`@ConfigurationProperties` record, registered with `@ConfigurationPropertiesScan`, constructor-injected into `HealthService`). Configuration precedence exercised: command-line args override `application.properties`. No database, security, or business logic yet.
+18. **Phase 2 slice 1 (database baseline) decisions (agreed 2026-09-30):** Local development PostgreSQL runs via Docker Compose from a committed `compose.yaml` (Docker CLI 29.x and Compose v5.5.1 are installed; the Docker Desktop daemon must be running before use). PostgreSQL-backed integration tests use Testcontainers with the official PostgreSQL image; H2 is rejected because it does not exercise real PostgreSQL semantics. The `customers` primary key is `BIGINT GENERATED ALWAYS AS IDENTITY` (sequential, compact indexes; no external exposure in Phase 2 since the endpoints are unauthorized until Phase 3). Initial `customers` columns: `id` (PK), `name VARCHAR(255) NOT NULL`, `email VARCHAR(320) NOT NULL`, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` mapped read-only from the database default. Email uniqueness is a plain `UNIQUE(email)` constraint, with the application storing addresses lowercased before every write. Datasource credentials are supplied through external configuration (no committed secrets). No authentication or tenant columns: those are designed in Phase 3, and no future-phase tables are created speculatively.
+
+## Proposed, not yet finalized
+
+- Exact identity/authentication mechanisms, permissions, onboarding, and subscription lifecycle.
+- Currency choice, billing time zone, rounding rules, and handling of late usage.
+- Detailed invoice preview/finalization behavior and preservation of historical pricing.
+- Endpoint contracts beyond the Phase 1 health endpoint and the Phase 2 slice 1 customer schema.
+
+## Deferred until relevant stage
+
+- AWS services, cost budget, environment uptime, CI/CD provider, and deployment topology.
+- Kafka event contracts, partition keys, commit policy, and retry/replay procedures.
+- CDC/outbox configuration and operational recovery.
+- Redis caching/rate-limiting use cases and failure policy.
+- Elasticsearch query requirements and indexing/rebuild approach.
+- Service extraction target and cutover strategy.
+- Whether to undertake Cassandra exploration.

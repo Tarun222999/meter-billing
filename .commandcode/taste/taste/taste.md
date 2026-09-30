@@ -1,0 +1,17 @@
+# Taste
+- Runs projects documentation-first: keeps a structured `docs/` tree (project overview, roadmap, decisions log, progress tracker, per-phase guides) and expects the agent to read the docs before touching code or proposing work. Confidence: 0.65
+- On learning projects, prefers to write the implementation personally while the agent explains, proposes bounded tasks, and reviews — the agent should not scaffold or implement unless explicitly asked. Confidence: 0.65
+- Prefers gated progression: open design questions (e.g. versions, auth mechanism, module layout) stay open until their phase, and findings/decisions are resolved before advancing to the next phase. Confidence: 0.55
+- Keeps decisions and progress in explicit dedicated docs (`decisions.md`, `progress.md`) as a running record rather than only in chat. Confidence: 0.6
+- Treats automated tests as part of the deliverable for any new feature/API, not an optional follow-up. Confidence: 0.5
+- Works in a Java/Spring Boot + PostgreSQL backend stack (organized under a Java-Stack directory). Confidence: 0.6
+- Builds Java/Spring Boot projects with Maven rather than Gradle. Confidence: 0.5
+- Picks current LTS Java (e.g. Java 25) with the latest stable supported Spring Boot line, avoiding EOL or non-LTS releases. Confidence: 0.5
+- Terse communicator: gives short directives and expects the agent to surface the concrete decisions/options needed to proceed rather than waiting for detailed instructions. Confidence: 0.45
+- Works on Windows and prefers to run commands in PowerShell, so instructions should be given in PowerShell form (and tool availability like `winget` confirmed rather than assumed). Confidence: 0.45
+- Executes commands literally (copy-pastes them verbatim, including placeholder values like `jdk-25.x.x-hotspot`), so instructions should be exact and runnable: real paths/values, no placeholders, and include the working directory (e.g. an explicit `cd`) rather than relying on the user's current location. Confidence: 0.55
+- Learns by asking conceptual "what/why" questions mid-task (e.g. what a Spring bean is, Spring Framework vs Spring Boot, how a mock-stubbed test differs from one using real values) and expects plain-language explanations anchored to their own code and current slice rather than abstract reference material. Confidence: 0.6
+- Bootstraps Java/Spring projects with Spring Initializr (or an IDE wizard) rather than hand-writing build files, then expects the generated project to be verified against the agreed layout and POM coordinates. Confidence: 0.45
+- Wants the agent to open each learning task/slice with a heads-up of the specific concepts and new things required to complete it — a short, on-point, comma-separated list (e.g. the annotations, request flow, test types involved), not broad topic areas or generic references. Will also prompt for this concepts list explicitly at the start of a slice if it wasn't given. Confidence: 0.8
+- Encodes recurring workflow expectations as standing rules in the project's `AGENTS.md` (and records them as decisions in the docs) rather than repeating them per task. Confidence: 0.55
+- Uses SonarQube/SonarLint static analysis while coding and forwards its findings (e.g. `java:S1068`) to the agent as work items, so linter warnings should be taken seriously and checked against the code. Confidence: 0.4
