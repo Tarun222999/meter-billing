@@ -2,9 +2,9 @@
 
 **Current stage:** Stage 1 — complete synchronous backend; phase plan documented.
 
-**Current phase:** Phase 1 (Spring Boot foundations and HTTP) complete and verified. Phase 2 (PostgreSQL, migrations, and customers) started: slice 1 (database baseline) decisions agreed 2026-09-30; implementation not yet written.
+**Current phase:** Phase 1 (Spring Boot foundations and HTTP) complete and verified. Phase 2 (PostgreSQL, migrations, and customers) slice 1 (database baseline) complete and reviewed 2026-10-03; slice 2 (create and retrieve) not started.
 
-**Implementation status:** Spring Boot 4.1.1 app under `backend/` (base package `com.cloudbox.metering`). All four Phase 1 slices verified. `mvnw test` passes (3 tests, 0 failures). `GET /api/v1/health` returns `200` + `application/json`; its values are externalized via a `HealthProperties` `@ConfigurationProperties` record registered by `@ConfigurationPropertiesScan`, injected into `HealthService` by constructor. No database or security yet.
+**Implementation status:** Spring Boot 4.1.1 app under `backend/` (base package `com.cloudbox.metering`). All four Phase 1 slices verified. Phase 2 slice 1 adds PostgreSQL (Docker Compose, `compose.yaml`), Flyway (`spring-boot-starter-flyway` + `flyway-database-postgresql`, `V1__create_customer.sql` creating `customers`), a `Customers` JPA entity and `CustomerRepository`, and two Testcontainers-backed tests (`testcontainers-postgresql` + `testcontainers-junit-jupiter` 2.0.5, `@ServiceConnection`): `MeteringApplicationTests` (full-context migration + `ddl-auto=validate`) and `CustomerRepositoryTest` (`@DataJpaTest`: save/reload round trip asserting a DB-generated `created_at`, plus a duplicate-email `DataIntegrityViolationException` case). `mvnw test` green: 4 tests, 0 failures. The dev database was migrated through Compose with the `local` profile (`flyway_schema_history` v1 success); the deliberate `missing column [whatever]` validation failure was captured and reverted. A root `README.md` documents the local commands. `GET /api/v1/health` unchanged (externalized via a `HealthProperties` `@ConfigurationProperties` record injected into `HealthService`). No security yet.
 
 ## Agreed
 
@@ -17,11 +17,11 @@
 
 ## Current task
 
-Phase 2, slice 1 (database baseline): decisions agreed 2026-09-30 (Docker Compose for local PostgreSQL, Testcontainers for integration tests, `BIGINT IDENTITY` customer PK, initial `customers` schema and email uniqueness — see `decisions.md` §18). Remaining work: the learner adds the datasource and Flyway configuration with externalized credentials, writes `V1` creating `customers`, maps the entity, and validates the mapping against the migrated schema with a PostgreSQL-backed integration test. Prerequisite: Docker Desktop daemon running (installed but stopped as of 2026-09-30). Phase 1 reviewed (done).
+Phase 2, slice 2 (create and retrieve): expose customer creation and retrieval over HTTP. Design a stable endpoint contract (create, and read by id) with request/response DTOs kept separate from the `Customers` entity; map to the entity in the service and persist through `CustomerRepository`; read back by id for retrieval. Acceptance: a customer created over HTTP is persisted and retrievable by id; the JSON contract is deliberate and does not expose the entity; SQL and the resulting database rows are inspected. Endpoints remain unauthorized until Phase 3. Bounded implementable task; the learner writes the code.
 
 ## Next task
 
-Review Phase 2 slice 1 (migration, mapping validation, DB-backed integration test) before the create/retrieve slice.
+Review Phase 2 slice 2 (HTTP contract, DTO separation from the entity, persistence, and missing-id behavior) before slice 3 (validation and consistent errors).
 
 ## Open reviews
 
@@ -35,15 +35,20 @@ Slice 4 (Phase 1) reviewed and verified on 2026-09-29: health values externalize
 
 Phase 1 (Spring Boot foundations and HTTP) is complete: all four slices reviewed and verified. The learner can explain the request path, bean creation and injection, slice vs full-context testing, and configuration precedence.
 
+Phase 2, slice 1 (database baseline) reviewed and verified on 2026-10-03: implementation, tests, Compose migration, and deliberate mismatch evidence independently confirmed (see the 2026-10-03 checkpoint). The learner answered the three phase review questions; two corrections were recorded. (a) Database constraints are not merely "data layer" rules — they are the unconditional enforcement of business invariants, and a Java pre-check cannot prevent two concurrent requests from both passing it. (b) Hibernate does not write only at transaction commit: `IDENTITY` generation forces an `INSERT` at persist time, auto-flush can precede a query, and the actual guarantee is only that changes are flushed no later than commit. The learner correctly described DTOs as decoupling the API contract from the persistence model, not as a layering concern. Independently verified: `mvnw test` green (4 tests, 0 failures); the Testcontainers runs log `Successfully applied 1 migration` and pass `ddl-auto=validate`; the Compose dev database shows `customers` with the agreed columns/constraints and `flyway_schema_history` v1 `success = t`. The deliberate mismatch (`missing column [whatever]`) was reproduced on startup and reverted. Findings raised across the slice and resolved by the learner: `flyway-core` alone does not activate Boot 4's modular Flyway autoconfiguration (needed `spring-boot-starter-flyway`); Testcontainers 1.x `org.testcontainers:postgresql` does not resolve under Boot 4.1's 2.x BOM (needed `testcontainers-postgresql` + `testcontainers-junit-jupiter`); `@DataJpaTest` moved to `org.springframework.boot.data.jpa.test.autoconfigure`; the `email.toLowerCase()` NPE risk on a null argument; calling `Optional` accessors directly instead of unwrapping; and the vacuous `created_at` assertion caused by the persistence-context first-level cache (fixed with `flush()` + `clear()`).
+
 Open, minor, non-blocking:
 
 - POM hygiene: empty `<url/>` and blank `<licenses>/<developers>/<scm>` blocks remain (`<name>`/`<description>` now filled).
+- Root `README.md`: content is right but the Markdown is broken — everything is indented four spaces so it renders as one code block, the `##` headings never render, and long commands are hard-wrapped mid-line. The command order is also inconsistent (`cd backend` precedes `docker compose up -d`, which must run from the repo root). Fix the indentation/wrapping and separate the app run from the test run.
 
 Resolved 2026-09-24: `JAVA_HOME` was unset and only JDK 18 was installed. Temurin 25 is now installed and `JAVA_HOME` is set at both User and Machine scope to `C:\Program Files\Eclipse Adoptium\jdk-25.0.4.101-hotspot`; a fresh shell resolves `java -version` to OpenJDK 25.0.4.1 LTS.
 
 No other implementation review exists for this project. The plain-Java sibling is learner-completed; do not reopen it automatically.
 
 ## Latest checkpoint
+
+2026-10-03: Phase 2 slice 1 (database baseline) implementation is green. POM now uses `spring-boot-starter-flyway` (raw `flyway-core` did not activate Boot 4's modular Flyway autoconfiguration, so migrations never ran), `flyway-database-postgresql`, and Testcontainers 2.0.5 (`testcontainers-postgresql` + `testcontainers-junit-jupiter`, replacing the 1.x `org.testcontainers:postgresql` pin). `MeteringApplicationTests` now runs a `postgres:16-alpine` `@Container` with `@ServiceConnection`; the run logs `Successfully validated 1 migration`, `Migrating schema "public" to version "1 - create customer"`, `Successfully applied 1 migration`, and `ddl-auto=validate` passes — proving schema, migration, and mapping agree. Full suite green: 3 tests, 0 failures at that point. Later the same day: added `CustomerRepositoryTest` (`@DataJpaTest`: save/reload round trip asserting a DB-generated `created_at`, plus a duplicate-email `DataIntegrityViolationException` case), and ran the app against the Compose database with the `local` profile, which applied `V1` for real — `flyway_schema_history` v1 `success = t` and `customers` created with the agreed columns and constraints. The deliberate `missing column [whatever]` validation failure was captured on startup and reverted, and a root `README.md` was added. Independent verification: `mvnw test` green, 4 tests, 0 failures. The Compose `postgres_db` container remains running. Slice 1 was reviewed and closed later the same day once the learner answered the three phase review questions (recorded under Open reviews).
 
 2026-09-30: Phase 2 slice 1 (database baseline) scoped and its decisions agreed, recorded in `decisions.md` §18. Local PostgreSQL runs via Docker Compose; integration tests use Testcontainers (H2 rejected); `customers` PK is `BIGINT GENERATED ALWAYS AS IDENTITY`; initial columns are `id`, `name VARCHAR(255) NOT NULL`, `email VARCHAR(320) NOT NULL UNIQUE`, `created_at TIMESTAMPTZ NOT NULL DEFAULT now()` (DB default, mapped read-only); app lowercases email before writes; credentials externalized. Tooling verified on this machine: Docker CLI 29.x and Compose v5.5.1 present, but the Docker Desktop daemon was not running. No Phase 2 implementation code written yet.
 

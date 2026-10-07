@@ -6,8 +6,6 @@ import org.junit.jupiter.api.Test;
 
 
 class HealthServiceTest {
-  
-
     @Test 
     void shouldReturnCurrentHealthStatus() {
         HealthService healthService = new HealthService(
